@@ -9,6 +9,10 @@ from call_function.py import available_functions
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
 
+config=types.GenerateContentConfig(
+    tools=[available_functions], system_instruction=system_prompt
+)
+
 
 if api_key is None:
     raise RuntimeError("GEMINI_API_KEY not found in environment variables")
