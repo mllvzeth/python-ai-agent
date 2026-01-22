@@ -54,17 +54,25 @@ def main():
             if func_calls is not None:
                 for call in func_calls:
                     print(f"Calling function: {call.name}({call.args})")
-                    function_call_result = call_function(call)
-                    if not getattr(function_call_result, "parts", None):
-                        raise ValueError(" Content.parts must be a non-empty list")
+
+                    function_call_result = call_function(call, args.verbose)
+
+                    if function_call_result is None or not function_call_result.parts:
+                        raise ValueError("Invalid Content: missing oor empty parts")
 
                     first_part = function_call_result.parts[0]
+                    func_call_responses = first_part
 
-                    func_resp = getattr(first_part, "function_reponse", None)
+                    func_resp = getattr(first_part, "function_response", None)
                     if func_resp is None:
                         raise ValueError(
                             "Content.parts[0].function_response must not be None"
                         )
+                    if func_resp.response is None:
+                        raise ValueError("FunctionResponse.response must not be None")
+
+                    if args.verbose:
+                        print(f"-> {func_resp.response}")
 
             else:
                 print(f"Response: {response.text}")
