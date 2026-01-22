@@ -5,7 +5,7 @@ from google import genai
 from google.genai import errors, types
 import argparse
 from prompts import system_prompt
-from call_function import available_functions_tool
+from call_function import available_functions_tool, call_function
 
 load_dotenv()
 api_key = os.environ.get("GEMINI_API_KEY")
@@ -54,6 +54,17 @@ def main():
             if func_calls is not None:
                 for call in func_calls:
                     print(f"Calling function: {call.name}({call.args})")
+                    function_call_result = call_function(call)
+                    if not getattr(function_call_result, "parts", None):
+                        raise ValueError(" Content.parts must be a non-empty list")
+
+                    first_part = function_call_result.parts[0]
+
+                    func_resp = getattr(first_part, "function_reponse", None)
+                    if func_resp is None:
+                        raise ValueError(
+                            "Content.parts[0].function_response must not be None"
+                        )
 
             else:
                 print(f"Response: {response.text}")
