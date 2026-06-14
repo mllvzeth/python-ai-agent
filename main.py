@@ -26,63 +26,77 @@ def main():
     # Now we can access `args.user_prompt`
 
     messages = [types.Content(role="user", parts=[types.Part(text=args.user_prompt)])]
-    if args.verbose:
-        print(f"User prompt: {messages}")
 
-    for attempt in range(5):
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=messages,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    temperature=0,
-                    tools=[available_functions_tool],
-                ),
-            )
+    for _ in range(20):
+        if args.verbose:
+            print(f"User prompt: {messages}")
 
-            if response.usage_metadata is None:
-                raise RuntimeError("Usage data missing")
-            if args.verbose:
-                print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
-                print(
-                    f"Response tokens: {response.usage_metadata.candidates_token_count}"
+        for attempt in range(5):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=messages,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0,
+                        tools=[available_functions_tool],
+                    ),
                 )
+                candidates = response.candidates
 
-            func_calls = response.function_calls
+                print(candidates)
 
-            if func_calls is not None:
-                for call in func_calls:
-                    print(f"Calling function: {call.name}({call.args})")
+                if candidates:
+                    messages.append(candidates.extend())
 
-                    function_call_result = call_function(call, args.verbose)
+                if response.usage_metadata is None:
+                    raise RuntimeError("Usage data missing")
+                if args.verbose:
+                    print(
+                        f"Prompt tokens: {response.usage_metadata.prompt_token_count}"
+                    )
+                    print(
+                        f"Response tokens: {response.usage_metadata.candidates_token_count}"
+                    )
 
-                    if function_call_result is None or not function_call_result.parts:
-                        raise ValueError("Invalid Content: missing oor empty parts")
+                func_calls = response.function_calls
 
-                    first_part = function_call_result.parts[0]
-                    func_call_responses = first_part
+                if func_calls is not None:
+                    for call in func_calls:
+                        print(f"Calling function: {call.name}({call.args})")
 
-                    func_resp = getattr(first_part, "function_response", None)
-                    if func_resp is None:
-                        raise ValueError(
-                            "Content.parts[0].function_response must not be None"
-                        )
-                    if func_resp.response is None:
-                        raise ValueError("FunctionResponse.response must not be None")
+                        function_call_result = call_function(call, args.verbose)
 
-                    if args.verbose:
-                        print(f"-> {func_resp.response}")
+                        if (
+                            function_call_result is None
+                            or not function_call_result.parts
+                        ):
+                            raise ValueError("Invalid Content: missing oor empty parts")
 
-            else:
-                print(f"Response: {response.text}")
+                        first_part = function_call_result.parts[0]
 
-            break
-        except errors.ServerError as e:
-            print(f"Attempt {attempt + 1} failed: {e}")
-            if attempt == 4:
-                raise
-            time.sleep(2 * (attempt + 1))  # simple backoff
+                        func_resp = getattr(first_part, "function_response", None)
+                        if func_resp is None:
+                            raise ValueError(
+                                "Content.parts[0].function_response must not be None"
+                            )
+                        if func_resp.response is None:
+                            raise ValueError(
+                                "FunctionResponse.response must not be None"
+                            )
+
+                        if args.verbose:
+                            print(f"-> {func_resp.response}")
+
+                else:
+                    print(f"Response: {response.text}")
+
+                break
+            except errors.ServerError as e:
+                print(f"Attempt {attempt + 1} failed: {e}")
+                if attempt == 4:
+                    raise
+                time.sleep(2 * (attempt + 1))  # simple backoff
 
 
 if __name__ == "__main__":
